@@ -1,7 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import styled from 'styled-components';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import '../CSS/login.css'
+import * as fs from 'fs-web';
+
+import axios from 'axios';
 
 export default function Login() {
 	const navigate = useNavigate();
@@ -9,6 +12,7 @@ export default function Login() {
 	const createproject = () => {
 		navigate("/createproject");
 	}
+
 
     const [style, setStyle] = useState('');
     const [email, setEmail] = useState('')
@@ -18,6 +22,75 @@ export default function Login() {
 
     const Log = async (e) => {
         e.preventDefault();
+
+        console.log("start");
+
+        const response = await fetch(
+            "https://api-inference.huggingface.co/models/wdika/MTL_SegNet_SKMTEA_poisson2d_4x",
+            {
+                headers: { 
+                    "Authorization": "Bearer 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",
+                    "Content-Type": "application/json"
+                },
+                method: "POST",
+                body: JSON.stringify( {
+                    "inputs": "Question: Which of the following is an example of monosomy? \
+                    Options: \
+                    - 46,XX \
+                    - 47,XXX \
+                    - 69,XYY \
+                    - 45,X \
+                    Please provide your choice first and then provide explanations if possible.",
+                    parameters: {
+                        "return_full_text": false,
+                    }
+                }),
+                
+            }
+        );
+
+        const result = await response.json();
+        console.log(result);
+
+        const res2 = await fetch(
+            "https://api-inference.huggingface.co/models/medicalai/ClinicalBERT",
+            {
+                headers: { 
+                    "Authorization": "Bearer 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",
+                    "Content-Type": "application/json"
+                },
+                method: "POST",
+                body: JSON.stringify( {
+                    "inputs": "Paris is the [MASK] of France.",
+                }),
+                
+            }
+        );
+
+        const result2 = await res2.json();
+        console.log(result2);
+
+        // const r = require('../images/BRAINTUMOUR.jpeg');
+        // const data = fs.readFile(r);
+
+        const response_0 = await fetch("../images/BRAINTUMOUR.jpeg");
+        const data = await response_0.blob()
+
+        const res3 = await fetch(
+            "https://api-inference.huggingface.co/models/Devarshi/Brain_Tumor_Classification",
+            {
+                headers: { 
+                    "Authorization": "Bearer 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",
+                    "Content-Type": "image/jpeg"
+                },
+                method: "POST",
+                body: data,
+                
+            }
+        );
+
+        const result3 = await res3.json();
+        console.log(result3);
     }
     
     const Signup = async (e) => {
