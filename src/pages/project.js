@@ -1,71 +1,88 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import styled from 'styled-components';
+import { useRef } from "react";
+import axios from 'axios';
 
 export default function Home() {
 	const navigate = useNavigate();
+    const location = useLocation();
+    const ProjectName = location.state?.ProjectName;
+    const ProjectToken = location.state?.ProjectToken;
+    const prevData = location.state?.prevData;
 
-	const project = () => {
-		navigate("/project");
-	}
-
-    const [input, setInput] = useState("");
     const [spin, setSpin] = useState("");
     const [data, setData] = useState([]);
+    const [file, setFile] = useState();
 
-    const predict = async (input) => {
+    useEffect(() => {
+        console.log(typeof prevData);
+        if (typeof ProjectToken === 'undefined' || typeof ProjectName === 'undefined'  || typeof prevData === 'undefined' ) {
+            navigate('/');
+            return;
+        }
+
+        console.log(prevData);
+
+        const newD = [];
+        prevData.map((d) => {
+            newD.push({
+                "input": d.image,
+                "result": d.label
+            });
+        });
+
+        console.log(newD);
+        setData(newD);
+
+    }, []);
+
+    const predict = async () => {
         setSpin(true);
-        console.log(input);
-        const response = await fetch(
-            "https://api-inference.huggingface.co/models/medicalai/ClinicalBERT",
-            {
-                headers: { 
-                    "Authorization": "Bearer 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",
-                    "Content-Type": "application/json"
-                },
-                method: "POST",
-                body: JSON.stringify( {
-                    "inputs": input,
-                    parameters: {
-                        "return_full_text": false,
-                    }
-                }),
-                
-            }
-        );
+        const token = localStorage.getItem('token');
+        const username = localStorage.getItem('username');
 
-        const result = await response.json();
-        console.log(result);
+        const targetFile = document.getElementById('file').files[0];
+        var formData = new FormData();
+        formData.append("image", targetFile);
+
+        await axios.post('http://127.0.0.1:5000/predict', formData,
+            {
+                headers: {
+                    'Authorization': token,
+                    'username': username,
+                    'projectToken': ProjectToken,
+                    'Content-Type': 'multipart/form-data',
+                }
+            }).then((res) => {
+                console.log(res.status);
+                console.log(res.data);
+                const prediction = res.data.prediction;
+                const filename = res.data.filename;
+                setData([...data, {
+                    "input": filename,
+                    "result": prediction
+                }]);
+                
+            }).catch((err) => {
+                console.log(err);
+            });
         
-        setInput("");
-        
-        setData([...data, {
-            "inputs": input,
-            "result": result
-        }]);
+        setFile("");
         
         setSpin(false);
     }
 
-    const handleInput = (e) => {
-        e.preventDefault();
-        setInput(e.target.value);
+    const inputFile = useRef(null) 
+
+    const upload = () => {
+        inputFile.current.click();
     }
 
-    // const data = [
-    //     {
-    //         "inputs": "Question1: Which of the following is an example of monosomy?",
-    //         "result": "return_full_text"
-    //     },
-    //     {
-    //         "inputs": "Question2: Which of the following is an example of monosomy?",
-    //         "result": "return_full_text"
-    //     },
-    //     {
-    //         "inputs": "Question3: Which of the following is an example of monosomy?",
-    //         "result": "return_full_text"
-    //     },
-    // ];
+    const fileChange = (e) => {
+        const file = e.target.files[0];
+        setFile(URL.createObjectURL(file));
+    }
 
 	return (
         <FullscreenCont>
@@ -79,12 +96,11 @@ export default function Home() {
                     {
                         data.map((d) => {
                             return (
-                                <div class="card" style={{width: "100%", height: "9rem", marginBottom:"30px"}}>
+                                <div class="card" style={{width: "100%", height: "11rem", marginBottom:"30px"}}>
                                     <div class="card-body">
                                         <p class="card-text">
                                         <div class="input-group mb-3" style={{width:"100%"}}>
-                                            <span class="input-group-text" id="inputGroup-sizing-default">Input</span>
-                                            <input type="text" class="form-control" aria-label="Sizing example input" disabled="disabled" value={d.inputs} aria-describedby="inputGroup-sizing-default"/>
+                                            <IMG src={"http://127.0.0.1:5000/" + d.input}/>
                                         </div>
                                         </p>
                                         <div class="input-group mb-3" style={{width:"100%"}}>
@@ -96,17 +112,31 @@ export default function Home() {
                             )
                         })
                     }
-                    <div class="card" style={{width: "100%", height: "9rem", marginBottom:"30px"}}>
-                        <div class="card-body">
-                            <p class="card-text">
-                            <div class="input-group mb-3" style={{width:"100%"}}>
-                                <span class="input-group-text" id="inputGroup-sizing-default">Input</span>
-                                <input type="text" class="form-control" aria-label="Sizing example input" value={input} onChange={handleInput} aria-describedby="inputGroup-sizing-default"/>
+                    <input onChange={fileChange} type='file' id='file' ref={inputFile} accept="image/png, image/gif, image/jpeg" style={{display: 'none'}}/>
+                    {
+                        file ?
+                        <div class="card" style={{width: "100%", height: "11rem", marginBottom:"30px"}}>
+                            <div class="card-body">
+                                <p class="card-text">
+                                <div class="input-group mb-3" style={{width:"100%"}}>
+                                    <IMG src={file} />
+                                </div>
+                                </p>
+                                <button class="btn btn-primary" onClick={predict}>Predict</button>
                             </div>
-                            </p>
-                            <a href="#" class="btn btn-primary" onClick={() => predict(input)}>Predict</a>
                         </div>
-                    </div>
+                        :
+                        <div class="card" style={{width: "100%", height: "5rem", marginBottom:"30px"}}>
+                            <div class="card-body">
+                                <p class="card-text">
+                                <div class="input-group mb-3" style={{width:"100%"}}>
+                                    <button class="btn btn-primary" onClick={upload}>Upload</button>
+                                </div>
+                                </p>
+                            </div>
+                        </div>
+                    }
+                    
                 </Cont>
             }
         </FullscreenCont>
@@ -129,3 +159,7 @@ const Cont = styled.div`
     padding: 30px;
     flex-direction: column;
 `;
+
+const IMG = styled.img`
+    width: 100px;
+`

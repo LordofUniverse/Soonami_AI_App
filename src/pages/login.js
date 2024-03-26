@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { useState, useEffect } from 'react';
 import '../CSS/login.css'
 import * as fs from 'fs-web';
+import { useRef } from "react";
 
 import axios from 'axios';
 
@@ -13,88 +14,95 @@ export default function Login() {
 		navigate("/createproject");
 	}
 
-
     const [style, setStyle] = useState('');
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [password2, setPassword2] = useState('')
     const [username, setUsername] = useState('')
 
+    const signinbut = useRef(null) 
+
     const Log = async (e) => {
         e.preventDefault();
 
-        console.log("start");
+        if (!(password.trim() == '' && username.trim() == '')) {
 
-        const response = await fetch(
-            "https://api-inference.huggingface.co/models/wdika/MTL_SegNet_SKMTEA_poisson2d_4x",
+            axios.post('http://127.0.0.1:5000/login', {
+              "username": username.trim(),
+              "password": password.trim(),
+            },
             {
-                headers: { 
-                    "Authorization": "Bearer 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",
-                    "Content-Type": "application/json"
-                },
-                method: "POST",
-                body: JSON.stringify( {
-                    "inputs": "Question: Which of the following is an example of monosomy? \
-                    Options: \
-                    - 46,XX \
-                    - 47,XXX \
-                    - 69,XYY \
-                    - 45,X \
-                    Please provide your choice first and then provide explanations if possible.",
-                    parameters: {
-                        "return_full_text": false,
-                    }
-                }),
-                
-            }
-        );
+                headers: {  
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                }
+            })
+            .then((res) => {
+                console.log(res.data);
+                console.log(res.status);
+                if (res.status == 200) {
+                    const token = res.data.token;
+                    localStorage.setItem('token', token);
+                    localStorage.setItem('username', username);
+                    navigate('/');
+                } else if (res.status == 401) {
+                    alert('Incorrect username or password!');
+                } else {
+                    alert('Error in the request!');
+                }
+            })
+            .catch((err) => console.log(err));
+      
+        } else {
 
-        const result = await response.json();
-        console.log(result);
+            alert('Fill all the fields!')   
+            return;
+        }
 
-        const res2 = await fetch(
-            "https://api-inference.huggingface.co/models/medicalai/ClinicalBERT",
-            {
-                headers: { 
-                    "Authorization": "Bearer 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",
-                    "Content-Type": "application/json"
-                },
-                method: "POST",
-                body: JSON.stringify( {
-                    "inputs": "Paris is the [MASK] of France.",
-                }),
-                
-            }
-        );
-
-        const result2 = await res2.json();
-        console.log(result2);
-
-        // const r = require('../images/BRAINTUMOUR.jpeg');
-        // const data = fs.readFile(r);
-
-        const response_0 = await fetch("../images/BRAINTUMOUR.jpeg");
-        const data = await response_0.blob()
-
-        const res3 = await fetch(
-            "https://api-inference.huggingface.co/models/Devarshi/Brain_Tumor_Classification",
-            {
-                headers: { 
-                    "Authorization": "Bearer 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",
-                    "Content-Type": "image/jpeg"
-                },
-                method: "POST",
-                body: data,
-                
-            }
-        );
-
-        const result3 = await res3.json();
-        console.log(result3);
     }
     
     const Signup = async (e) => {
         e.preventDefault();
+
+        if (password.trim() != password2.trim()) {
+            alert('Passwords do not match!');
+            return;
+        }
+
+        if (!(username.trim() == '' && password.trim() == '' && email.trim() == '')) {
+
+            axios.post('http://127.0.0.1:5000/register', {
+              "email": email.trim(),
+              "password": password.trim(),
+              "username": username.trim()
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                }
+            })
+            .then((res) => {
+                console.log(res.data);
+                console.log(res.status);
+
+                if (res.status == 200) {
+                    signinbut.current.click();
+                } else if (res.status == 409) {
+                    alert('User already exists!');
+                } else if (res.status == 400) {
+                    alert('Invalid Email address or Username. Username must contain only characters and numbers!');
+                } else {
+                    alert('Error in the request!');
+                }
+            })
+            .catch((err) => console.log(err));
+      
+        } else {
+
+            alert('Fill all the fields!')    
+            return;
+        }
     }
 
     return (
@@ -105,7 +113,7 @@ export default function Login() {
                 <h2 class="title">Sign in</h2>
                 <div class="input-field">
                 <i class="fas fa-user" aria-hidden='true'></i>
-                <input id='loginemail' type="text" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+                <input id='loginemail' type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
                 </div>
                 <div class="input-field">
                 <i class="fas fa-lock" aria-hidden='true'></i>
@@ -150,7 +158,7 @@ export default function Login() {
             <div class="panel right-panel">
             <div class="content">
                 <h3>One of us ?</h3>
-                <button class="butn transparent" id="sign-in-butn" onClick={() => {
+                <button ref={signinbut} class="butn transparent" id="sign-in-butn" onClick={() => {
                 setStyle('')
                 }}>
                 Sign in
